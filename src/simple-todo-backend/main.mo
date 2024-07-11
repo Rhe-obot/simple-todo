@@ -1,5 +1,54 @@
-actor {
-  public query func greet(name : Text) : async Text {
-    return "Hello, " # name # "!";
+import Map "mo:base/HashMap";
+import Hash "mo:base/Hash";
+import Nat "mo:base/Nat";
+import Iter "mo:base/Iter";
+import Text "mo:base/Text";
+
+
+actor Assistant {
+
+  type ToDo = {
+    detail: Text;
+    completed: Bool;
   };
-};
+
+  func natHash(n : Nat) : Hash.Hash { 
+    Text.hash(Nat.toText(n))
+  };
+
+  var todos = Map.HashMap<Nat, ToDo>(0, Nat.equal, natHash);
+  var nextId : Nat = 0;
+
+  public query func getTodos() : async [ToDo] {
+    Iter.toArray(todos.vals());
+  };
+
+  
+  public func addTodo(detail : Text) : async Nat {
+    let id = nextId;
+    todos.put(id, { detail = detail; completed = false });
+    nextId += 1;
+    id
+  };
+
+  public func completeTodo(id : Nat) : async () {
+    ignore do ? {
+      let detail = todos.get(id)!.detail;
+      todos.put(id, { detail; completed = true });
+    }
+  };
+
+  public query func showTodos() : async Text {
+    var output : Text = "\n___TO-DOs___";
+    for (todo : ToDo in todos.vals()) {
+      output #= "\n" # todo.detail;
+      if (todo.completed) { output #= " ✔"; };
+    };
+    output # "\n"
+  };
+
+  public func clearCompleted() : async () {
+    todos := Map.mapFilter<Nat, ToDo, ToDo>(todos, Nat.equal, natHash, 
+              func(_, todo) { if (todo.completed) null else ?todo });
+  };
+}
